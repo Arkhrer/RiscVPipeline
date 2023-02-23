@@ -167,7 +167,9 @@ entity control is
         ALUSrc						: out std_logic;
         ALUOp						: out std_logic_vector(1 downto 0);
         Branch, MemRead, MemWrite	: out std_logic;
-        RegWrite, Mem2Reg			: out std_logic
+        RegWrite, Mem2Reg			: out std_logic;
+
+	incondicional			:out std_logic
 	);
 end control;
 
@@ -183,6 +185,7 @@ begin
                 Memwrite <= '0';
                 RegWrite <= '1';
                 Mem2Reg <= '0';
+                incondicional <= '0';
 
               -- I TYPE (Load word)
               when x"03" => ALUSrc <= '1';
@@ -192,6 +195,7 @@ begin
                 Memwrite <= '0';
                 RegWrite <= '1';
                 Mem2Reg <= '1';
+                incondicional <= '0';
 
               -- I TYPE (Logico aritméticas com imediatos)
               when x"13" => ALUSrc <= '1';
@@ -201,6 +205,7 @@ begin
                 Memwrite <= '0';
                 RegWrite <= '1';
                 Mem2Reg <= '0';
+                incondicional <= '0';
 
               -- I TYPE (Jalr)
               when x"67" => ALUSrc <= '0';
@@ -210,6 +215,7 @@ begin
                 Memwrite <= '0';
                 RegWrite <= '1';
                 Mem2Reg <= '0';
+                incondicional <= '1';
 
               -- S TYPE (store w)
               when x"23" => ALUSrc <= '1';
@@ -219,6 +225,7 @@ begin
                 Memwrite <= '1';
                 RegWrite <= '0';
                 Mem2Reg <= 'X';
+                incondicional <= '0';
 
               -- SB TYPE (branch)
               when x"63" => ALUSrc <= '0';
@@ -228,6 +235,7 @@ begin
                 Memwrite <= '0';
                 RegWrite <= '0';
                 Mem2Reg <= 'X';
+                incondicional <= '0';
                 
 				-- U TYPE (lui, auipc)
               when x"37" => ALUSrc <= '1';
@@ -237,6 +245,7 @@ begin
                 Memwrite <= '0';
                 RegWrite <= '1';
                 Mem2Reg <= '0';
+                incondicional <= '0';
               	--auipc
               when x"17" => ALUSrc <= '1';
                 ALUOp <= "11";
@@ -245,6 +254,7 @@ begin
                 Memwrite <= '0';
                 RegWrite <= '1';
                 Mem2Reg <= '0';
+                incondicional <= '0';
 
               -- UJ TYPE (jal)
               when x"6F" => ALUSrc <= '0';
@@ -254,6 +264,7 @@ begin
                 Memwrite <= '0';
                 RegWrite <= '1';
                 Mem2Reg <= '0';
+                incondicional <= '1';
 
               when others => ALUSrc <= 'X';
                 ALUOp <= "XX";
@@ -262,6 +273,7 @@ begin
                 Memwrite <= 'X';
                 RegWrite <= 'X';
                 Mem2Reg <= 'X';
+                incondicional <= 'X';
             end case;
     end process;
 end behavior;
@@ -355,6 +367,7 @@ entity regIDEX is
         ALUOp									: in std_logic_vector(1 downto 0);
         Branch, MemRead, MemWrite				: in std_logic;
         RegWrite, Mem2Reg						: in std_logic;
+	incondicional								: in std_logic;
         
         PCPrev									: out std_logic_vector(31 downto 0);
         ro1Prev, ro2Prev 						: out std_logic_vector(31 downto 0);
@@ -368,7 +381,10 @@ entity regIDEX is
         --M
         BranchPrev, MemReadPrev, MemWritePrev	: out std_logic;
         --WB
-        RegWritePrev, Mem2RegPrev				: out std_logic
+        RegWritePrev, Mem2RegPrev				: out std_logic;
+
+	
+	incondicionalPrev								: out std_logic
 	);
 end regIDEX;
 
@@ -378,7 +394,7 @@ begin
       if (rising_edge(clk)) then
           if (instruction(6 downto 0) = "1101111" or instruction(6 downto 0) = "1100111") then
               ro1Prev <= X"00000000";
-              ro2Prev <= std_logic_vector(signed(PC) + X"4"); --Gambiarra pro jal e jalr
+              ro2Prev <= std_logic_vector(unsigned(PC) + X"4"); --Gambiarra pro jal e jalr
           elsif (instruction(6 downto 0) = "0010111") then
               ro2Prev <= ro2;
               ro1Prev <= PC; --Gambiarra pro AUIPC
@@ -387,18 +403,16 @@ begin
               ro1Prev <= ro1;
           end if;
 
-          if (instruction(6 downto 0) = "1100111") then
-              PCPrev <= ro1; --Gambiarra pro jalr
-          elsif (instruction(6 downto 0) = "1101111") then
-	      PCPrev <= X"00000000"; --Gambiarra pro jal
-	  else
-              PCPrev <= PC;
-          end if;
+          --if (instruction(6 downto 0) = "1100111") then
+          --    PCPrev <= ro1; --Gambiarra pro jalr
+	  --else
+          PCPrev <= PC;
+          --end if;
 
 	  --if (instruction(6 downto 0) = "0010111" or instruction(6 downto 0) = "1101111" or instruction(6 downto 0) = "1100111" or instruction(6 downto 0) = "1100011")  then
 	  --    imm32Prev <= std_logic_vector(unsigned(imm32) - X"00400000");
 	  --else
-              imm32Prev <= imm32;
+          imm32Prev <= imm32;
 	  --end if;
 
           if (instruction(6 downto 0) = "0110111" or instruction(6 downto 0) = "0010111" or instruction(6 downto 0) = "1101111") then
@@ -416,6 +430,7 @@ begin
           MemWritePrev <= MemWrite;
           RegWritePrev <= RegWrite;
           Mem2RegPrev <= Mem2Reg;
+	  incondicionalPrev <= incondicional;
       end if;
     end process;
 end architecture;
@@ -501,8 +516,7 @@ entity ula_RV is
     port(
         opcode: in std_logic_vector(3 downto 0);
         A,B: in std_logic_vector(WSIZE-1 downto 0);
-        Z: out std_logic_vector(WSIZE-1 downto 0);
-        zero: out std_logic
+        Z: out std_logic_vector(WSIZE-1 downto 0)
     );
 end ula_RV;
 
@@ -511,9 +525,6 @@ architecture behavior of ula_RV is
     begin
         Z <= a32;
         proc_ula: process(A, B, opcode, a32) begin
-            if(a32 = x"00000000") then zero <= '1';
-            else zero <= '0';
-            end if;
 
             case (opcode) is
                 --add
@@ -579,6 +590,7 @@ entity regEXMEM is
         Zero									: in std_logic;
         Branch, MemRead, MemWrite				: in std_logic;
         RegWrite, Mem2Reg						: in std_logic;
+	incondicional								: in std_logic;
         
         PCPrev									: out std_logic_vector(31 downto 0);
         PCAddPrev								: out std_logic_vector(31 downto 0);
@@ -589,7 +601,8 @@ entity regEXMEM is
         --M
         BranchPrev, MemReadPrev, MemWritePrev	: out std_logic;
         --WB
-        RegWritePrev, Mem2RegPrev				: out std_logic
+        RegWritePrev, Mem2RegPrev				: out std_logic;
+	incondicionalPrev							: out std_logic
 	);
 end regEXMEM;
 
@@ -608,6 +621,7 @@ begin
           RegWritePrev <= RegWrite;
           Mem2RegPrev <= Mem2Reg;
           ALUresultPrev <= ALUresult;
+	  incondicionalPrev <= incondicional;
       end if;
     end process;
 end architecture;

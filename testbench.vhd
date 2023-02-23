@@ -78,7 +78,6 @@ architecture Behavioral of testbench is
     signal instr_ALU_s: std_logic_vector(3 downto 0);
     
     signal ALU_res_0_s: std_logic_vector(31 downto 0);
-    signal zero_0_s: std_logic;
     
     signal ALU_res_1_s: std_logic_vector(31 downto 0);
     signal zero_1_s: std_logic;
@@ -87,6 +86,10 @@ architecture Behavioral of testbench is
     
     signal ram_data_0_s: std_logic_vector(31 downto 0);
     signal ram_data_1_s: std_logic_vector(31 downto 0);
+
+    signal incondicional_0_s: std_logic;
+    signal incondicional_1_s: std_logic;
+    signal incondicional_2_s: std_logic; 
     
 	component Add is
 		port(
@@ -146,7 +149,8 @@ architecture Behavioral of testbench is
         	ALUSrc						: out std_logic;
         	ALUOp						: out std_logic_vector(1 downto 0);
         	Branch, MemRead, MemWrite	: out std_logic;
-        	RegWrite, Mem2Reg			: out std_logic
+        	RegWrite, Mem2Reg			: out std_logic;
+	        incondicional				: out std_logic
 		);
 	end component;
     
@@ -178,6 +182,8 @@ architecture Behavioral of testbench is
           ALUOp									: in std_logic_vector(1 downto 0);
           Branch, MemRead, MemWrite				: in std_logic;
           RegWrite, Mem2Reg						: in std_logic;
+	  incondicional								: in std_logic;
+	
 
           PCPrev									: out std_logic_vector(31 downto 0);
           ro1Prev, ro2Prev 						: out std_logic_vector(31 downto 0);
@@ -191,7 +197,8 @@ architecture Behavioral of testbench is
           --M
           BranchPrev, MemReadPrev, MemWritePrev	: out std_logic;
           --WB
-          RegWritePrev, Mem2RegPrev				: out std_logic
+          RegWritePrev, Mem2RegPrev				: out std_logic;
+	  incondicionalPrev							: out std_logic
       );
   end component;
   
@@ -209,8 +216,7 @@ architecture Behavioral of testbench is
       port(
           opcode: in std_logic_vector(3 downto 0);
           A,B: in std_logic_vector(WSIZE-1 downto 0);
-          Z: out std_logic_vector(WSIZE-1 downto 0);
-          zero: out std_logic
+          Z: out std_logic_vector(WSIZE-1 downto 0)
       );
   end component;
   
@@ -225,6 +231,7 @@ architecture Behavioral of testbench is
           Zero									: in std_logic;
           Branch, MemRead, MemWrite				: in std_logic;
           RegWrite, Mem2Reg						: in std_logic;
+	incondicional							: in std_logic;
 
           PCPrev									: out std_logic_vector(31 downto 0);
           PCAddPrev								: out std_logic_vector(31 downto 0);
@@ -235,7 +242,8 @@ architecture Behavioral of testbench is
           --M
           BranchPrev, MemReadPrev, MemWritePrev	: out std_logic;
           --WB
-          RegWritePrev, Mem2RegPrev				: out std_logic
+          RegWritePrev, Mem2RegPrev				: out std_logic;
+	  incondicionalPrev							: out std_logic
       );
   end component;
   
@@ -293,7 +301,7 @@ begin
     port map (
     	caso1 => address_plus4_s,
         caso2 => address_j_s,
-        decisor => (Branch_2_s and (not zero_1_s)),
+        decisor => ((Branch_2_s and zero_1_s) or incondicional_2_s),
         saida => next_address_s
     );
     
@@ -339,7 +347,8 @@ begin
         MemRead => MemRead_0_s,
         MemWrite => MemWrite_0_s,
         RegWrite => RegWrite_0_s,
-        Mem2Reg => Mem2Reg_0_s
+        Mem2Reg => Mem2Reg_0_s,
+	incondicional => incondicional_0_s
     );
     
     regs: XREGS
@@ -376,6 +385,8 @@ begin
         MemWrite => MemWrite_0_s,
         RegWrite => RegWrite_0_s,
         Mem2Reg => Mem2Reg_0_s,
+	incondicional => incondicional_0_s,
+
         PCPrev => address_2_s,
         ro1Prev => ro1_1_s,
         ro2Prev => ro2_1_s,
@@ -389,7 +400,8 @@ begin
         MemReadPrev => MemRead_1_s,
         MemWritePrev => MemWrite_1_s,
         RegWritePrev => RegWrite_1_s,
-        Mem2RegPrev => Mem2Reg_1_s
+        Mem2RegPrev => Mem2Reg_1_s,
+	incondicionalPrev => incondicional_1_s
     );
     
   	add2: Add
@@ -420,8 +432,7 @@ begin
     	opcode => instr_ALU_s,
         A => ro1_1_s,
         B => ro2_ALU_s,
-        Z => ALU_res_0_s,
-        zero => zero_0_s
+        Z => ALU_res_0_s
     );
     
     exmem : regEXMEM
@@ -432,7 +443,8 @@ begin
         ALUresult => ALU_res_0_s,
         destReg => destReg_0_s,
         ro2 => ro2_1_s,
-        Zero => zero_0_s,
+        Zero => ALU_res_0_s(0),
+	incondicional => incondicional_1_s,
         
         Branch => Branch_1_s,
         MemRead => MemRead_1_s,
@@ -451,7 +463,9 @@ begin
         MemReadPrev => MemRead_2_s,
         MemWritePrev => MemWrite_2_s,
         RegWritePrev => RegWrite_2_s,
-        Mem2RegPrev => Mem2Reg_2_s
+        Mem2RegPrev => Mem2Reg_2_s,
+	
+	incondicionalPrev => incondicional_2_s
     );
     
     ram: mem_ram
